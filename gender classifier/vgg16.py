@@ -145,6 +145,7 @@ def visulize(trainAcc, valAcc, trainLoss, valLoss):
     #plt.savefig('loss.png')
     plt.show()
 
+### hellp
 if __name__ == '__main__':
     best_Loss = 10000.
     trainAcc, trainLoss, valAcc, valLoss = train()
