@@ -1,4 +1,4 @@
-import torch
+mport torch
 import os
 import torchvision
 import torchvision.transforms as transforms
@@ -7,7 +7,7 @@ import time
 import torch.nn.functional as F
 import torch.nn as nn
 import matplotlib.pyplot as plt
-import dataset
+import gender_dataset
 import copy
 
 from sklearn.model_selection import train_test_split
@@ -17,13 +17,13 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 #train_val, test = train_test_split(dataset.race_dataframe, test_size=0.2, random_state=42)
-train, val = train_test_split(dataset.race_dataframe, test_size=0.2, random_state=42)
+train, val = train_test_split(gender_dataset.race_dataframe, test_size=0.2, random_state=42)
 
+#transform_objs = transforms.Compose([transforms.ToPILImage(), transforms.RandomRotation(degrees = 45),transforms.ToTensor()])
 transform_objs = transforms.Compose([transforms.ToPILImage(), transforms.ToTensor()])
-
-img_dir = 'F:\master thesis\\face dataset\Fairface\\' # face dataset folder
-train_dataset = dataset.CustomImageDataset(train, img_dir, transform_objs)
-val_dataset = dataset.CustomImageDataset(val,  img_dir, transform_objs)
+img_dir = '/media/qi/Elements/windows/master thesis/face dataset/Fairface/'
+train_dataset = gender_dataset.CustomImageDataset(train, img_dir, transform_objs)
+val_dataset = gender_dataset.CustomImageDataset(val,  img_dir, transform_objs)
 #test_dataset = dataset.CustomImageDataset(test,  img_dir, transform_objs)
 
 train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, num_workers=0)
@@ -52,7 +52,7 @@ for param in vgg16.features.parameters():
 
 # optimizer
 optimizer = optim.SGD(vgg16.parameters(), lr=0.0001)
-#scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
 # loss function
 criterion = nn.CrossEntropyLoss()
@@ -63,7 +63,7 @@ def validate(model, val_dataloader):
     val_running_loss = 0.0
     val_running_correct = 0
     for int, data in enumerate(val_dataloader):
-        data, target = data[0].to(device), data[1].to(device)
+        data, target = data['image'].to(device), data['gender'].to(device)
         output = model(data)
         loss = criterion(output, target)
 
@@ -83,7 +83,7 @@ def fit(model, train_dataloader):
     train_running_loss = 0.0
     train_running_correct = 0
     for i, data in enumerate(train_dataloader):
-        data, target = data[0].to(device), data[1].to(device)
+        data, target = data['image'].to(device), data['gender'].to(device)
         optimizer.zero_grad()
         output = model(data)
         loss = criterion(output, target)
@@ -102,10 +102,10 @@ def fit(model, train_dataloader):
 def train():
     train_loss, train_accuracy = [], []
     val_loss, val_accuracy = [], []
-    best_loss = 1000.
-
+    best_loss = 1000
+    #best_model_wts = copy.deepcopy(vgg16.state_dict())
     start = time.time()
-    for epoch in range(20):
+    for epoch in range(10):
         train_epoch_loss, train_epoch_accuracy = fit(vgg16, train_loader)
 
         val_epoch_loss, val_epoch_accuracy = validate(vgg16, val_loader)
@@ -113,7 +113,7 @@ def train():
 
         if val_epoch_loss < best_loss:
             best_loss = val_epoch_loss
-            torch.save(vgg16.state_dict(), 'E:\\genderModel\\asian/' +'asian_vgg16.pt') # save the best trained model
+            #torch.save(vgg16.state_dict(), 'E:\\ageModel\\asian/' +'asian_vgg16.pt')
 
         train_loss.append(train_epoch_loss)
         train_accuracy.append(train_epoch_accuracy)
@@ -145,8 +145,6 @@ def visulize(trainAcc, valAcc, trainLoss, valLoss):
     #plt.savefig('loss.png')
     plt.show()
 
-
-if __name__ == '__main__':
-    best_Loss = 10000.
-    trainAcc, trainLoss, valAcc, valLoss = train()
-    visulize(trainAcc, valAcc, trainLoss, valLoss)
+best_Loss = 10000.
+trainAcc, trainLoss, valAcc, valLoss = train()
+visulize(trainAcc, valAcc, trainLoss, valLoss)
