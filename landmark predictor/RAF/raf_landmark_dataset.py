@@ -1,4 +1,4 @@
-mport os
+import os
 import pandas as pd
 from torchvision.io import read_image
 from torchvision import transforms, utils
@@ -8,34 +8,40 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 import torch
-from torch.nn import functional as F
+import torchvision.transforms.functional as F
 
 def get_data():
 
-    landmarks_dataframe = pd.read_csv('/media/qi/Elements/windows/master thesis/face dataset/Fairface/train_dataset/asian_train.csv').iloc[:100]
+    landmarks_dataframe = pd.read_csv('/media/qi/Elements/windows/master thesis/face dataset/RAF/basic/mix_train.csv').iloc[:100]
 
     return landmarks_dataframe
 
 class CustomImageDataset(Dataset):
-    def __init__(self, dataframe, img_dir, transform):
-        self.img_gender = dataframe
+    def __init__(self, dataframe, img_dir, transform=None, target_transfrom=None, output_shape=(-1, 2)):
+        self.img_landmarks = dataframe
         self.img_dir = img_dir
         self.transform = transform
+        self.target_transform = target_transfrom
+        self.output_shape = output_shape
 
     def __len__(self):
-        return len(self.img_gender)
+        return len(self.img_landmarks)
 
     def __getitem__(self, idx):
-        img_path = self.img_dir + self.img_gender.iloc[idx, 1]
+        img_path = self.img_dir + self.img_landmarks.iloc[idx, 0] + '.jpg'
         image = io.imread(img_path)
         #image = Image.open(img_path)
         #image = image.permute(1, 2, 0)
         #plt.imshow(image.numpy())
         #plt.show()
-        gender = np.array(self.img_gender.iloc[idx, 7])
-        sample = {'image': image, 'gender': gender}
+        landmarks = self.img_landmarks.iloc[idx, 1:11]
+        landmarks = np.array([landmarks])
+        landmarks = landmarks.astype('float').reshape(self.output_shape)
+        sample = {'image': image, 'landmarks': landmarks}
+        if self.target_transform:
+            sample = self.target_transform(sample)
         if self.transform:
-            sample['image'] = self.transform(sample['image'])
+            sample = self.transform(sample)
 
         return sample
 
@@ -43,17 +49,22 @@ class ToPILImage(object):
     def __init__(self):
         self.transform = transforms.ToPILImage()
 
-    def __call__(self, image):
-        return self.transform(image)
+    def __call__(self, sample):
+        image, landmarks = sample['image'], sample['landmarks']
+        return {'image': self.transform(image), 'landmarks': landmarks}
 
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
     def __init__(self):
       self.transform = transforms.ToTensor()
-
-    def __call__(self, image):
+    def __call__(self, sample):
+        image, landmarks = sample['image'], sample['landmarks']
+        # swap color axis because
+        # numpy image: H x W x C
+        # torch image: C X H X W
         image = self.transform(image)
-        return image
+        return {'image': image,
+                'landmarks':torch.from_numpy(landmarks)}
 
 class Rescale(object):
 
@@ -92,7 +103,6 @@ class RandomHorizontalFlip(object):
     """
 
     def __init__(self, p=0.5):
-        super().__init__()
         self.p = p
 
     def __call__(self, sample):
@@ -104,10 +114,13 @@ class RandomHorizontalFlip(object):
             PIL Image or Tensor: Randomly flipped image.
         """
         img, landmarks = sample['image'], sample['landmarks']
+        #print(img.shape)
         w, h = img.size
         if torch.rand(1) < self.p:
-            img =  F.hflip(img)
-            landmarks[0] = w - landmarks[0]
+            img2 = F.hflip(img)
+            #landmarks2 = landmarks.copy()
+            landmarks[:,0] = abs(landmarks[:,0] - w)
+            return {'image': img2, 'landmarks': landmarks}
 
         return {'image': img, 'landmarks': landmarks}
 
@@ -123,7 +136,6 @@ class RandomVerticalFlip(object):
     """
 
     def __init__(self, p=0.5):
-        super().__init__()
         self.p = p
 
     def __call__(self, sample):
@@ -138,14 +150,14 @@ class RandomVerticalFlip(object):
         w, h = img.size
         if torch.rand(1) < self.p:
             img = F.vflip(img)
-            landmarks[1] = h - landmarks[1]
+            landmarks[:, 1] = abs(landmarks[:, 1] - h)
 
         return {'image': img, 'landmarks': landmarks}
 
 
 #file_path = 'F:\master thesis\\face dataset\Fairface\\'
-race_dataframe = get_data()
-print(race_dataframe.head())
-print(len(race_dataframe))
+landmarks_dataframe = get_data()
+print(landmarks_dataframe.head())
+print(len(landmarks_dataframe))
 #race_dataset = CustomImageDataset(race_dataframe, file_path)
 #race_dataset.__getitem__(2)

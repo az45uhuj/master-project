@@ -9,26 +9,19 @@ from torch.autograd import Variable
 import pandas as pd
 
 
+
 transfrom_list = [T.ToTensor()]
 img_to_tensor = T.Compose(transfrom_list)
 
 def make_model():
-    #vgg = models.resnet18(pretrained=True)
-    #vgg.classifier = torch.nn.Sequential(torch.nn.Linear(25088, 4096),
-    #                                       torch.nn.ReLU(),
-    #                                       torch.nn.Dropout(p=0.5),
-    #                                      torch.nn.Linear(4096, 4096),
-    #                                       torch.nn.ReLU(),
-    #                                       torch.nn.Dropout(p=0.5),
-    #                                       torch.nn.Linear(4096, 2))
+
     resnet = models.resnet34(pretrained=True)
     resnet.fc = torch.nn.Sequential(
         torch.nn.Dropout(0.5),
         torch.nn.Linear(resnet.fc.in_features, 9)
     )
 
-    #vgg.to(device)
-    resnet.load_state_dict(torch.load('E:\\faireface_agemodel\\resnet model3\\mix_resnet34.pt'))
+    resnet.load_state_dict(torch.load('/media/qi/Elements/master project/age_model/resnet model3/asian_resnet34_2.pt'))
     resnet.cuda()
 
     return resnet
@@ -51,10 +44,11 @@ def inference(vggmodel, imgpath):
 if __name__=="__main__":
     d = {}
     model = make_model()
-    races = ['asian', 'black', 'hispanic', 'indian', 'middle_eastern', 'white']
+    races = ['asian']
+    #races = ['asian', 'black', 'hispanic', 'indian', 'middle_eastern', 'white']
     for race in races:
-        filepath = 'F:\master thesis\\face dataset\Fairface\\new_age_train_and_test_dataset2\\' + race + '_test.csv'
-        imgpath = 'F:\master thesis\\face dataset\Fairface\\'
+        filepath = '/media/qi/Elements/windows/master thesis/face dataset/Fairface/new_age_train_and_test_dataset2/' + race + '_test.csv'
+        imgpath = '/media/qi/Elements/windows/master thesis/face dataset/Fairface/'
         df = pd.read_csv(filepath)[['file', 'gender_label', 'age_label']]
 
         print(df.head())
@@ -67,5 +61,5 @@ if __name__=="__main__":
         df.set_index('Image', inplace=True)
         df['error'] = abs(df['age_label'] - df['Pre_Age'])
         df = df.drop(['file'], axis=1)
-        df.to_csv('E:\\faireface_agemodel\\resnet model3\\mix_test\\' + race + '_pre_age.csv')
+        df.to_csv('/media/qi/Elements/master project/age_model/asian2/' + race + '_pre_age.csv')
         print(df.head())

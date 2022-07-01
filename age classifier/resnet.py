@@ -11,19 +11,19 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from torchvision import models
 from torch.utils.data import DataLoader
-import dataset
+import age_dataset
 
 
 #train_val, test = train_test_split(datasets.landmarks_dataframe, test_size=0.2, random_state=42)
-train, val = train_test_split(dataset.race_dataframe, test_size=0.2, random_state=42)
+train, val = train_test_split(age_dataset.race_dataframe, test_size=0.2, random_state=42)
 
 transform_objs = transforms.Compose([transforms.ToPILImage(), transforms.RandomRotation(degrees=(0, 180)),
                                      transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)), transforms.ToTensor()])
 
 
-img_dir = 'F:\master thesis\\face dataset\Fairface\\'
-train_dataset = dataset.CustomImageDataset(train, img_dir, transform_objs)
-val_dataset = dataset.CustomImageDataset(val,  img_dir, transform_objs)
+img_dir = '/media/qi/Elements/windows/master thesis/face dataset/Fairface/'
+train_dataset = age_dataset.CustomImageDataset(train, img_dir, transform_objs)
+val_dataset = age_dataset.CustomImageDataset(val,  img_dir, transform_objs)
 #test_dataset = datasets.CustomImageDataset(test,  img_dir, transform_objs)
 
 train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=0)
@@ -39,9 +39,11 @@ resnet = models.resnet34(pretrained=True)
 for param in resnet.parameters():
    param.requires_grad = True
 
+#num_ftrs = resnet.fc.in_features
+#resnet.fc = torch.nn.Linear(num_ftrs, 5)
 resnet.fc = nn.Sequential(
      nn.Dropout(0.5),
-     nn.Linear(resnet.fc.in_features, 9)
+     nn.Linear(resnet.fc.in_features, 5)
 )
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -49,7 +51,8 @@ resnet = resnet.to(device)
 
 # optimizer
 optimizer = optim.SGD(resnet.parameters(), lr=0.0001, momentum=0.9)
-#scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
+#optimizer = optim.Adam(resnet.parameters(), lr=0.00001)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
 
 # loss function
 criterion = nn.CrossEntropyLoss()
@@ -60,7 +63,7 @@ def validate(model, val_dataloader):
     val_running_loss = 0.0
     val_running_correct = 0
     for int, data in enumerate(val_dataloader):
-        data, target = data[0].to(device), data[1].to(device)
+        data, target = data['image'].to(device), data['age'].to(device)
         output = model(data)
         loss = criterion(output, target)
 
@@ -80,7 +83,7 @@ def fit(model, train_dataloader):
     train_running_loss = 0.0
     train_running_correct = 0
     for i, data in enumerate(train_dataloader):
-        data, target = data[0].to(device), data[1].to(device)
+        data, target = data['image'].to(device), data['age'].to(device)
         optimizer.zero_grad()
         output = model(data)
         loss = criterion(output, target)
@@ -99,8 +102,8 @@ def fit(model, train_dataloader):
 def train():
     train_loss, train_accuracy = [], []
     val_loss, val_accuracy = [], []
-    best_loss = 1000.
-    
+    best_loss = 1000
+    #best_model_wts = copy.deepcopy(vgg16.state_dict())
     start = time.time()
     for epoch in range(50):
         train_epoch_loss, train_epoch_accuracy = fit(resnet, train_loader)
@@ -108,7 +111,7 @@ def train():
         #scheduler.step()
         if val_epoch_loss < best_loss:
             best_loss = val_epoch_loss
-            torch.save(resnet.state_dict(), 'E:\\faireface_agemodel\\resnet model3\\' +'mix_resnet34.pt')
+            #torch.save(resnet.state_dict(), 'E:\\faireface_agemodel\\resnet model3\\' +'mix_resnet34.pt')
         train_loss.append(train_epoch_loss)
         train_accuracy.append(train_epoch_accuracy)
         val_loss.append(val_epoch_loss)
@@ -138,9 +141,9 @@ def visulize(trainAcc, valAcc, trainLoss, valLoss):
     plt.savefig('loss.png')
     plt.show()
 
-if __name__ == '__main__':
-    best_Loss = 10000.
-    trainAcc, trainLoss, valAcc, valLoss = train()
-    visulize(trainAcc, valAcc, trainLoss, valLoss)
 
-    #visualize_model(resnet, val_loader, 5)
+best_Loss = 10000.
+trainAcc, trainLoss, valAcc, valLoss = train()
+visulize(trainAcc, valAcc, trainLoss, valLoss)
+
+#visualize_model(resnet, val_loader, 5)
